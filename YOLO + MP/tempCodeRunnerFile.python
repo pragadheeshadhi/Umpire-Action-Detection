@@ -1,0 +1,103 @@
+import cv2
+import mediapipe as mp
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Initialize MediaPipe Face Mesh
+mp_face_mesh = mp.solutions.face_mesh
+face_mesh = mp_face_mesh.FaceMesh(static_image_mode=False, max_num_faces=1, refine_landmarks=True)
+
+# Initialize drawing utilities
+mp_drawing = mp.solutions.drawing_utils
+drawing_spec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1, color=(255, 255, 255))
+
+# Constants for drowsiness detection
+EYE_CLOSED_THRESHOLD = 0.2  # Threshold for eye aspect ratio (EAR)
+HEAD_TILT_THRESHOLD = 20    # Threshold for head tilt angle (degrees)
+ALERT_COOLDOWN = 90         # Cooldown period for alerts (frames)
+
+# Variables for state tracking
+alert_active = False
+cooldown_counter = 0
+
+# Function to calculate eye aspect ratio (EAR)
+def eye_aspect_ratio(eye_landmarks):
+    A = np.linalg.norm(np.array(eye_landmarks[1]) - np.array(eye_landmarks[5]))
+    B = np.linalg.norm(np.array(eye_landmarks[2]) - np.array(eye_landmarks[4]))
+    C = np.linalg.norm(np.array(eye_landmarks[0]) - np.array(eye_landmarks[3]))
+    ear = (A + B) / (2.0 * C)
+    return ear
+
+# Function to calculate head tilt angle
+def head_tilt_angle(face_landmarks):
+    nose = [face_landmarks[1].x, face_landmarks[1].y]
+    chin = [face_landmarks[152].x, face_landmarks[152].y]
+    dY = chin[1] - nose[1]
+    dX = chin[0] - nose[0]
+    angle = np.degrees(np.arctan2(dY, dX))
+    return angle
+
+# Load video file from GitHub raw URL
+#video_url = 'https://raw.githubusercontent.com/Muralidharan45/driver/main/Driver%20drowsiness%20detection%20-%20video%20num%201.mp4'
+#video_url = 'https://raw.githubusercontent.com/Muralidharan45/Detection/main/Driver.mp4'
+cap = cv2.VideoCapture(0)
+
+while cap.isOpened():
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    results = face_mesh.process(image_rgb)
+
+    if results.multi_face_landmarks:
+        for face_landmarks in results.multi_face_landmarks:
+            mp_drawing.draw_landmarks(
+                frame, face_landmarks, mp_face_mesh.FACEMESH_CONTOURS,
+                landmark_drawing_spec=drawing_spec,
+                connection_drawing_spec=drawing_spec
+            )
+
+            left_eye = [(face_landmarks.landmark[i].x, face_landmarks.landmark[i].y) for i in [33, 160, 158, 133, 153, 144]]
+            right_eye = [(face_landmarks.landmark[i].x, face_landmarks.landmark[i].y) for i in [362, 385, 387, 263, 373, 380]]
+
+            left_ear = eye_aspect_ratio(left_eye)
+            right_ear = eye_aspect_ratio(right_eye)
+            avg_ear = (left_ear + right_ear) / 2.0
+
+            tilt_angle = head_tilt_angle(face_landmarks.landmark)
+
+            if avg_ear < EYE_CLOSED_THRESHOLD and abs(tilt_angle) > HEAD_TILT_THRESHOLD:
+                state = "Sleeping"
+                alert_active = True
+            elif avg_ear < EYE_CLOSED_THRESHOLD:
+                state = "Drowsy"
+                alert_active = True
+            else:
+                state = "Active"
+                alert_active = False
+
+            cv2.putText(frame, f"State: {state}", (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            cv2.putText(frame, f"Head Tilt: {int(tilt_angle)} deg", (10, 60),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
+            if alert_active and cooldown_counter == 0:
+                print("ALERT: Driver is drowsy or sleeping!")
+                cooldown_counter = ALERT_COOLDOWN
+
+    #The following two lines were incorrectly indented
+    if cooldown_counter > 0:
+        cooldown_counter -= 1
+
+    # Display the frame using matplotlib (for inline display in Jupyter Notebook)
+    plt.imshow(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    plt.axis('off')
+    plt.show()
+
+    # Break the loop if 'q' is pressed
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
