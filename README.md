@@ -1,34 +1,15 @@
 # Umpire Hand Signal Recognition
 
 ## Overview
-This project implements real-time recognition of cricket umpire hand signals using **YOLOv8**, **OpenPose**, and **LSTM/GRU models**. It captures umpire signals from live video, classifies them, and updates the scorecard automatically.
+This project implements real-time recognition of cricket umpire hand signals using **YOLOv8**, **MediaPipe**, and **LSTM/GRU models**. It captures umpire signals from live video, classifies them, and updates the scorecard automatically.
 
 ## Features
-- **Hand detection and keypoint extraction** using OpenPose.
-- **YOLOv8-based object detection** for recognizing umpire signals.
+- **Hand detection and keypoint extraction** using MediaPipe.
 - **LSTM/GRU-based classification** for accurate recognition of multiple cricket signals.
 - **Real-time processing** with video input.
 - **Dataset creation and training** for custom model improvement.
+- **ByteTrack** for running between wickets calculations.
 
-## Umpire Signals Covered
-- Out
-- No-ball
-- Free-Hit
-- Wide ball
-- Four runs
-- Six runs
-- Byes
-- Leg Byes
-- Bouncer
-- Television / 3rd Umpire
-- Dead Ball
-- Short Run
-- Penalty Runs
-- Revoke Decision
-- Powerplay
-- Soft Signal
-- New Ball
-- Last Hour
 
 ## Project Structure
 ```
